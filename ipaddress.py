@@ -1,19 +1,31 @@
+from asyncio import futures
+from concurrent.futures.thread import ThreadPoolExecutor
+from concurrent.futures import as_completed
 import json
+from multiprocessing import pool
+from queue import Queue
 import re
 from enum import Enum
 from http.client import HTTPResponse
+import socket
 from sys import stderr, stdout
 from time import sleep, time
-from typing import Dict
+from typing import Dict, List, Tuple
 from urllib.request import Request, urlopen
+
+from tqdm.contrib import concurrent
 
 CONFIG = {
     "name": "ipaddress",
     "author": "Bohan Wang <wbhan_cn@qq.com>",
-    "timeout": 3.0,
+    "timeout": 1,
     "pattern": r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b",
     "maxThreads": 10,
     "urls": [
+        {
+            "url": "http://139.155.43.138:10240/",
+            "returnType": "string"
+        },
         {
             "url": "http://ip.42.pl/raw",
             "returnType": "string"
@@ -85,15 +97,17 @@ class IPProvider(object):
         self._type = type
         self._field = field
 
-    # FIXME: 完成GET方法
     def get(self) -> str:
         if self._type == ReturnType.STRING:
             return req(self._url)
         elif self._type == ReturnType.LSTRING:
-            res = re.findall(CONFIG["pattern"], req(self._url))
-            if len(res) > 0:
-                return res[0]
-            else:
+            try:
+                res = re.findall(CONFIG["pattern"], req(self._url))
+                if len(res) > 0:
+                    return res[0]
+                else:
+                    return None
+            except TypeError:
                 return None
         elif self._type == ReturnType.JSON:
             if self._field is None:
@@ -121,36 +135,39 @@ def req(url: str,
         return None
 
 
-def get_my_ip(type: IPType):
+def choice(providers: List[IPProvider]) -> str:
+    pool = ThreadPoolExecutor(max_workers=len(providers))
+    futures = [pool.submit(provider.get) for provider in providers]
+    for i in as_completed(futures):
+        now = i.result()
+        if now is not None:
+            return now
+
+
+def get_my_ip(type: IPType) -> List[str]:
     if type == IPType.WAN:
         typeMap = {
-            "string", ReturnType.STRING,
-            "lstring", ReturnType.LSTRING,
-            "json", ReturnType.JSON
+            "string": ReturnType.STRING,
+            "lstring": ReturnType.LSTRING,
+            "json": ReturnType.JSON
         }
         providers = []
         for url in CONFIG["urls"]:
-            if url["type"] == "json":
-                p = IPProvider(url["url"], typeMap[url["type"]], url["field"])
+            if url["returnType"] == "json":
+                p = IPProvider(
+                    url["url"], typeMap[url["returnType"]], url["field"])
             else:
-                p = IPProvider(url["url"], typeMap[url["type"]])
+                p = IPProvider(url["url"], typeMap[url["returnType"]])
             providers.append(p)
-
-        # FIXME: 对providers进行筛选
-        
+        return [choice(providers=providers)]
     elif type == IPType.LAN:
-        pass
+        try:
+            hostname = socket.gethostname()
+            addrs = socket.getaddrinfo(hostname, None)
+            return [info[4][0] for info in addrs]
+        except:
+            return ["127.0.0.1"]
 
 
 if __name__ == '__main__':
-    # resp = req("http://ip.42.pl/raw", CONFIG["header"], CONFIG["timeout"])
-
-    # pd = IPProvider("http://ip.42.pl/raw", ReturnType.STRING)
-    # print(pd.get())
-
-    r1 = IPProvider("http://ip.42.pl/raw", ReturnType.STRING)
-    r2 = IPProvider("http://httpbin.org/ip", ReturnType.JSON, field="origin")
-    r3 = IPProvider("http://checkip.dyndns.com/", ReturnType.LSTRING)
-    print(r1.get())
-    print(r2.get())
-    print(r3.get())
+    print(get_my_ip(IPType.LAN))
