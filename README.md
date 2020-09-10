@@ -5,11 +5,11 @@
 ## Tutorial
 
 ```bash
-pip3 install ipaddress
+pip3 install whoami
 ```
 
 ```python
-from ipaddress import get_my_ip
+from whoami import get_my_ip, IPType
 
 get_my_ip(IPType.WAN)
 
