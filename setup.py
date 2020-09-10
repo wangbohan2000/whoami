@@ -12,7 +12,7 @@ setuptools.setup(
     description="A convenient library to get our ip (real public ip or private ip).",
     long_description=desc,
     long_description_content_type="text/markdown",
-    url="https://github.com/wangbohan2000/ipaddress",
+    url="https://github.com/wangbohan2000/whoami",
     packages=setuptools.find_packages(),
     classifiers=(
         "Programming Language :: Python :: 3",
