@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf8") as rm:
 
 setuptools.setup(
     name="whoami",
-    version="2.1.7",
+    version="2.1.8",
     author="Bohan Wang",
     author_email="wbhan_cn@qq.com",
     description=" ✔ A convenient library to get our ip (real public ip or private ip).",
